@@ -16,7 +16,8 @@ def make_config(
         use_attack, attack_type,
         run_name, batch_accumulation=1,
         turn_off_norm_weight_decay=False,
-        min_str=None, mean_str=None, freq_cut=1, phase_cut=1, granularity=448
+        min_str=None, mean_str=None, freq_cut=1, phase_cut=1, granularity=448,
+        use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2,
 ):
     config = ml_collections.ConfigDict()
 
@@ -60,6 +61,14 @@ def make_config(
     config.enable_aug.premix = premix
     config.enable_aug.general_fourier = use_fourier
     config.enable_aug.use_apr = use_apr
+    config.enable_aug.use_wca = use_wca
+
+    if use_wca:
+        config.wca = ml_collections.ConfigDict()
+        config.wca.source = wca_source
+        config.wca.target = wca_target
+        config.wca.level = wca_level
+        config.wca.swap_prob = wca_swap_prob
 
     config.orthogonal_combination = orthogonal_combination
     config.in_mix = in_mix
@@ -278,7 +287,8 @@ class ConfigBuilder:
     @classmethod
     def build(
             cls, ds, m, attack, use_prime, use_augmix, use_fourier, use_apr, in_mix, use_jsd,
-            use_mix=False, mean_str=None, min_str=None, orth=True, premix='none'
+            use_mix=False, mean_str=None, min_str=None, orth=True, premix='none',
+            use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2,
     ):
         _lookup_ds = ds.upper()
 
@@ -313,6 +323,11 @@ class ConfigBuilder:
         config['premix'] = premix
         config['use_fourier'] = use_fourier
         config['use_apr'] = use_apr
+        config['use_wca'] = use_wca
+        config['wca_source'] = wca_source
+        config['wca_target'] = wca_target
+        config['wca_level'] = wca_level
+        config['wca_swap_prob'] = wca_swap_prob
 
         config['in_mix'] = in_mix
         config['use_jsd'] = use_jsd
@@ -323,7 +338,7 @@ class ConfigBuilder:
         config['min_str'] = min_str
         config['mean_str'] = mean_str
 
-        aug_name = 'prime' if use_prime else 'augmix' if use_augmix else 'afa' if use_fourier else 'apr' if use_apr else 'none'
+        aug_name = 'prime' if use_prime else 'augmix' if use_augmix else 'afa' if use_fourier else 'apr' if use_apr else 'wca' if use_wca else 'none'
         aug_name = f'{aug_name}-comb' if not orth else aug_name
         aug_name = f'mix-{aug_name}' if use_mix else aug_name
         aug_name = f'{premix}-{aug_name}' if premix != 'none' else aug_name

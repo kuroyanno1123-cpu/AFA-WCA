@@ -5,6 +5,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from project.augs import GeneralFourierOnline, GeneralizedPRIMEModule, PRIMEAugModule, AugMixDataset
 from project.augs.apr import APR
 from project.augs.prime import make_original_prime_aug_config
+from project.augs.wca import WaveletBasisSwapOnline
 
 try:
     import wandb
@@ -139,6 +140,17 @@ def build_augmentations(training_dataset, config, image_size, train_transform):
             augmentations.append(
                 gen_afa_from_config(config, image_size)
             )
+
+    if getattr(config.enable_aug, 'use_wca', False):
+        wca_cfg = config.wca
+        augmentations.append(
+            WaveletBasisSwapOnline(
+                source_wavelet=wca_cfg.source,
+                target_wavelet=wca_cfg.target,
+                level=wca_cfg.level,
+                swap_prob=wca_cfg.swap_prob,
+            )
+        )
 
     return training_dataset, T.Compose(augmentations), None
 
