@@ -12,7 +12,7 @@
 set -e
 GPU=0
 SEED=0
-EPOCHS=200
+EPOCHS=250
 DIR=/home/kairisasaki/AFA-WCA
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
