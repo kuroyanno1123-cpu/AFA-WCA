@@ -9,7 +9,7 @@
 #   共通条件: ResNet18 / CIFAR-10 / batch=256 / SGD+CosineAnnealing
 #             eta_min=1e-5 / grad_clip=1.0 / seed=0 / 200ep
 
-set -e
+set -eo pipefail
 GPU=0
 SEED=0
 EPOCHS=250
