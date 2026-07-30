@@ -131,11 +131,10 @@ def main(config, weights=None):
     wandb.finish()
 
 
-def cc_test(training_module, config, test_transform, val_loader, severities=(4,)):
+def cc_test(training_module, config, test_transform, val_loader, severities=(4,), ckpt_path_override=None):
     test_accs = {}
 
-    # requires the best model checkpoint to be saved locally already
-    ckpt_path = os.path.join(wandb.run.dir, 'model_best.ckpt')
+    ckpt_path = ckpt_path_override or os.path.join(wandb.run.dir, 'model_best.ckpt')
 
     training_module.load_state_dict(torch.load(ckpt_path)['state_dict'])
 
@@ -170,6 +169,60 @@ def cc_test(training_module, config, test_transform, val_loader, severities=(4,)
 
     wandb.log({'corruption_table': my_table})
 
+    return test_accs
+
+
+def eval_only_main(config, ckpt_path):
+    """Run cc_test only (no training) using an existing checkpoint."""
+    logger = MyWandBLogger(
+        name=config.run_name, project=config.project, log_model=False, allow_val_change=True
+    )
+    logger.experiment
+
+    wandb.config.update(config.to_dict())
+
+    dataset_class = get_dataset(config.dataset)
+    img_sz = dataset_class.image_size
+    num_classes = dataset_class.num_classes
+
+    normalise_transform = T.Normalize(mean=dataset_class.mean, std=dataset_class.std)
+    test_transform, train_transform = get_standard_transforms(config.dataset, img_sz, config.enable_aug.premix)
+    using_wrapper = config.enable_aug.use_augmix
+
+    model_class = get_model(config.dataset, config.model)
+    model = model_class(num_classes=num_classes)
+
+    t_dset, v_dset = [
+        dataset_class(root=config.data_dir, train=train, transform=transform)
+        for train, transform in [
+            (True, None if using_wrapper else train_transform), (False, test_transform)
+        ]
+    ]
+    t_dset, train_aug, val_aug = build_augmentations(t_dset, config, img_sz, train_transform)
+    attack = make_attack(config, dataset_class)
+
+    v_dl = DataLoader(v_dset, batch_size=config.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+
+    training_module = get_module_class(config)(
+        config=config,
+        num_classes=num_classes, model=model,
+        train_aug=train_aug, val_aug=val_aug, normalisation=normalise_transform,
+        attack=attack,
+    )
+    training_module.eval()
+
+    test_accs = cc_test(training_module, config, test_transform, v_dl,
+                        severities=(1, 2, 3, 4, 5), ckpt_path_override=ckpt_path)
+
+    avg_test_acc = sum(
+        [
+            sum([acc for acc in test_accs[corruption].values()]) / len(test_accs[corruption])
+            for corruption in test_accs if corruption != 'clean'
+        ]
+    ) / (len(test_accs) - 1)
+    wandb.log({'corr_acc': avg_test_acc})
+
+    wandb.finish()
     return test_accs
 
 
