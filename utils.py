@@ -177,6 +177,14 @@ def make_attack(config, dataset_class):
             return APR(p=1.0)
         elif config.attack.type == 'afa':
             return gen_afa_from_config(config, dataset_class.image_size)
+        elif config.attack.type == 'wca':
+            wca_cfg = config.wca
+            return WaveletBasisSwapOnline(
+                source_wavelet=wca_cfg.source,
+                target_wavelet=wca_cfg.target,
+                level=wca_cfg.level,
+                swap_prob=wca_cfg.swap_prob,
+            )
         else:
             raise NotImplementedError
     else:

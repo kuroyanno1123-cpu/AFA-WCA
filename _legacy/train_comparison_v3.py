@@ -14,9 +14,8 @@
     loss   = ACE
   AdvModule.training_step_augmix (AugMix あり):
     (x1_clean, x2_augmix) = batch  [retain_clean=True]
-    x_main = attack(x1) → AT-free では x2_augmix (AugMix 出力をそのまま使用)
-    x_aux  = train_aug(x2_augmix) → AT-free では FBA/WCA(x1_clean)
-             ※ x_aux は元画像(clean preprocessed)に対して適用する
+    x_main = x2_augmix (AT-free; AT版では attack(x1_clean))
+    x_aux  = train_aug(x2_augmix) = FBA/WCA(x2_augmix)  ← AFA公式と一致
     loss   = ACE
   → AdvModule の「分離型」が Table 3 に対応。
     NormalJSDModule の in_mix (aug_config に FBA を混ぜる) は Table 3 とは別構成。
@@ -111,7 +110,7 @@ def build_datasets_and_aug(args):
     batch_mode='augmix':
       batch = ((x_clean, x_augmix), y)
       x_main = x_augmix    = AugMix(x)
-      x_aux  = freq_aug(x_clean)                    [元画像 clean から別ストリーム]
+      x_aux  = freq_aug(x_augmix)                   [AFA公式: train_aug(x2_augmix)]
       ← AdvModule.training_step_augmix の AT-free 版に対応
     """
     train_tf = T.Compose([
@@ -209,8 +208,8 @@ def train_epoch(model, optimizer, scheduler, loader,
                 main_aug, freq_aug, normalise, device, grad_clip, batch_mode):
     """
     batch_mode='simple' : batch=(x,y) → x_main=x, x_aux=freq_aug(x)
-    batch_mode='prime'  : batch=(x,y) → x_main=main_aug(x), x_aux=freq_aug(x)
-    batch_mode='augmix' : batch=((x_clean,x_aug),y) → x_main=x_aug, x_aux=freq_aug(x_clean)
+    batch_mode='prime'  : batch=(x,y) → x_main=main_aug(x), x_aux=freq_aug(x_main)
+    batch_mode='augmix' : batch=((x_clean,x_aug),y) → x_main=x_aug, x_aux=freq_aug(x_aug)
     """
     model.train()
     sum_loss = sum_cm = sum_ca = n = 0
@@ -222,15 +221,16 @@ def train_epoch(model, optimizer, scheduler, loader,
             x_aug   = x_aug.to(device)
             y       = y.to(device)
             x_main = x_aug               # AugMix(x) — 視覚拡張ストリーム
-            x_aux  = freq_aug(x_clean)   # FBA/WCA(x_clean) — 周波数拡張ストリーム
+            x_aux  = freq_aug(x_aug)     # FBA/WCA(AugMix(x)) — AFA公式: train_aug(x2_augmix)
         else:
             x, y = batch
             x, y = x.to(device), y.to(device)
             if batch_mode == 'prime':
-                x_main = main_aug(x)     # PRIME(x) — 視覚拡張ストリーム
+                x_main = main_aug(x)         # PRIME(x) — 視覚拡張ストリーム
+                x_aux  = freq_aug(x_main)    # FBA/WCA(PRIME(x)) — AFA公式: train_aug=T.Compose([PRIME,FBA])
             else:  # 'simple'
-                x_main = x              # 素の画像 (旧来)
-            x_aux = freq_aug(x)          # FBA/WCA/APR(x) — 周波数拡張ストリーム
+                x_main = x                   # 素の画像 (旧来)
+                x_aux  = freq_aug(x)         # FBA/WCA/APR(x)
 
         logits_m = model(normalise(x_main))
         logits_a = model(normalise(x_aux))
@@ -271,12 +271,13 @@ def main(args):
     normalise = T.Normalize(mean=MEAN, std=STD)
 
     train_dataset, val_dataset, main_aug, freq_aug, batch_mode = build_datasets_and_aug(args)
-    steps_per_epoch = len(train_dataset) // args.batch_size
     t_dl = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
                       num_workers=4, pin_memory=True)
     v_dl = DataLoader(val_dataset,   batch_size=512, shuffle=False,
                       num_workers=4, pin_memory=True)
+    steps_per_epoch = len(t_dl)  # 実バッチ数 (端数バッチ含む; AFA公式 C10=196 に対応)
     print(f'[aug]    batch_mode={batch_mode}  main={main_aug}  freq={freq_aug}')
+    print(f'[sched]  steps_per_epoch={steps_per_epoch}  T_max={args.max_epoch * steps_per_epoch}')
 
     optimizer = torch.optim.SGD(
         model.parameters(), lr=args.lr,

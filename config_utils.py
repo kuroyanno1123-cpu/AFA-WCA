@@ -63,7 +63,7 @@ def make_config(
     config.enable_aug.use_apr = use_apr
     config.enable_aug.use_wca = use_wca
 
-    if use_wca:
+    if use_wca or (use_attack and attack_type == 'wca'):
         config.wca = ml_collections.ConfigDict()
         config.wca.source = wca_source
         config.wca.target = wca_target
@@ -81,7 +81,7 @@ def make_config(
     if config.enable_attack:
         config.attack = ml_collections.ConfigDict()
 
-        assert attack_type in ['afa', 'prime', 'apr']
+        assert attack_type in ['afa', 'prime', 'apr', 'wca']
         config.attack.type = attack_type
 
     if config.enable_aug.general_fourier or (config.enable_attack and config.attack.type == 'afa'):
