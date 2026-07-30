@@ -23,14 +23,14 @@ EXPERIMENTS = [
         use_fourier=False, use_wca=False, use_jsd=False,
     ),
     dict(
-        name='prime_afa',
-        attack='prime', use_augmix=False, use_prime=True,
-        use_fourier=True,  use_wca=False, use_jsd=False,
-    ),
-    dict(
         name='augmix_plain',
         attack='none',  use_augmix=True,  use_prime=False,
         use_fourier=False, use_wca=False, use_jsd=True,
+    ),
+    dict(
+        name='prime_afa',
+        attack='prime', use_augmix=False, use_prime=True,
+        use_fourier=True,  use_wca=False, use_jsd=False,
     ),
     dict(
         name='prime_wca',
