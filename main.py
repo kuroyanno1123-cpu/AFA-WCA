@@ -169,6 +169,23 @@ def cc_test(training_module, config, test_transform, val_loader, severities=(4,)
 
     wandb.log({'corruption_table': my_table})
 
+    # 結果をテキストファイルに即時保存
+    corr_avg = sum(
+        sum(v for v in test_accs[c].values()) / len(test_accs[c])
+        for c in test_accs if c != 'clean'
+    ) / (len(test_accs) - 1)
+    out_path = os.path.join(wandb.run.dir, 'cc_results.txt')
+    with open(out_path, 'w') as f:
+        f.write(f'run_name={config.run_name}\n')
+        f.write(f'clean_acc={clean_test_log["val_acc"]:.4f}\n')
+        f.write(f'corr_avg={corr_avg:.4f}\n')
+        f.write(f'mCE={(1-corr_avg):.4f}\n\n')
+        for c in test_accs:
+            if c == 'clean':
+                continue
+            avg = sum(test_accs[c].values()) / len(test_accs[c])
+            f.write(f'{c:<25}: {avg*100:.2f}%\n')
+
     return test_accs
 
 
