@@ -357,6 +357,29 @@ class AdvModule(BaseModule):
         return (loss_clean + loss_adv) / 2.
 
 
+class APRPModule(BaseModule):
+    """
+    APR-P の正しい実装 (gary23ai/APR に準拠)。
+    clean と attack(x) を cat して 1 回の forward パスで損失計算。
+    BN が両分布を同時に見る点が AdvModule (2 回 forward) と異なる。
+
+    loss = CE(y[:N], targets) + CE(y[N:], targets)
+    """
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        N = x.size(0)
+
+        x_aug = self.attack(x)                        # APR-P / AFA / WCA など
+        x_cat = torch.cat([x, x_aug], dim=0)          # (2N, C, H, W)
+        y_cat = self.model(self.normalisation(x_cat))  # 1 回の forward
+
+        loss = (self.train_criterion(y_cat[:N], y)
+              + self.train_criterion(y_cat[N:], y))
+        self.log_train_metrics(loss / 2, y_cat[:N], y)
+        return loss
+
+
 def get_module_class(config):
     if config.enable_attack:
         if config.use_jsd:
@@ -366,6 +389,9 @@ def get_module_class(config):
             else:
                 print('Using AdvJSDModule - Combination')
                 return AdvCombinationJSDModule
+        elif getattr(config.attack, 'type', None) == 'apr':
+            print('Using APRPModule (concat forward, APR-P)')
+            return APRPModule
         else:
             print('Using AdvModule')
             return AdvModule

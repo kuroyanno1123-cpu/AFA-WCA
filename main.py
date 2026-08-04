@@ -174,7 +174,9 @@ def cc_test(training_module, config, test_transform, val_loader, severities=(4,)
         sum(v for v in test_accs[c].values()) / len(test_accs[c])
         for c in test_accs if c != 'clean'
     ) / (len(test_accs) - 1)
-    out_path = os.path.join(wandb.run.dir, 'cc_results.txt')
+    results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results', config.run_name)
+    os.makedirs(results_dir, exist_ok=True)
+    out_path = os.path.join(results_dir, 'cc_results.txt')
     with open(out_path, 'w') as f:
         f.write(f'run_name={config.run_name}\n')
         f.write(f'clean_acc={clean_test_log["val_acc"]:.4f}\n')
@@ -184,7 +186,10 @@ def cc_test(training_module, config, test_transform, val_loader, severities=(4,)
             if c == 'clean':
                 continue
             avg = sum(test_accs[c].values()) / len(test_accs[c])
-            f.write(f'{c:<25}: {avg*100:.2f}%\n')
+            f.write(f'{c:<25}: {avg*100:.2f}%')
+            for sev, acc in sorted(test_accs[c].items()):
+                f.write(f'  sev{sev}={acc*100:.2f}%')
+            f.write('\n')
 
     return test_accs
 

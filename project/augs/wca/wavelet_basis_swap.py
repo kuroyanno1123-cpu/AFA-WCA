@@ -35,6 +35,7 @@ class WaveletBasisSwapOnline(nn.Module):
         level: int = 1,
         swap_prob: float = 0.2,
         mode: str = 'periodization',
+        swap_ll: bool = False,
     ):
         super().__init__()
         self.source_wavelet = source_wavelet
@@ -42,6 +43,7 @@ class WaveletBasisSwapOnline(nn.Module):
         self.level = level
         self.swap_prob = swap_prob
         self.mode = mode
+        self.swap_ll = swap_ll
 
     def _process_channel(self, ch: np.ndarray, src_w: str, tgt_w: str) -> np.ndarray:
         """1チャンネル (H,W) numpy float64 → 基底スワップ後 numpy float64 (同 shape)。"""
@@ -51,12 +53,13 @@ class WaveletBasisSwapOnline(nn.Module):
         detail_levels = coeffs[1:]
         zeros_cA = np.zeros_like(cA)
 
-        # LL: src_w で再構成（低周波保護）
+        # LL: swap_ll=True のとき HF と同じ確率で基底スワップ
+        ll_w = (tgt_w if random.random() < self.swap_prob else src_w) if self.swap_ll else src_w
         zeros_details = [
             (np.zeros_like(d[0]), np.zeros_like(d[1]), np.zeros_like(d[2]))
             for d in detail_levels
         ]
-        result = pywt.waverec2([cA] + zeros_details, wavelet=src_w, mode=self.mode)
+        result = pywt.waverec2([cA] + zeros_details, wavelet=ll_w, mode=self.mode)
 
         # 各レベルの各HF係数 (LH, HL, HH) を独立に swap
         for lvl_i, (LH, HL, HH) in enumerate(detail_levels):

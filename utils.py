@@ -149,6 +149,7 @@ def build_augmentations(training_dataset, config, image_size, train_transform):
                 target_wavelet=wca_cfg.target,
                 level=wca_cfg.level,
                 swap_prob=wca_cfg.swap_prob,
+                swap_ll=getattr(wca_cfg, 'swap_ll', False),
             )
         )
 
@@ -184,6 +185,7 @@ def make_attack(config, dataset_class):
                 target_wavelet=wca_cfg.target,
                 level=wca_cfg.level,
                 swap_prob=wca_cfg.swap_prob,
+                swap_ll=getattr(wca_cfg, 'swap_ll', False),
             )
         else:
             raise NotImplementedError

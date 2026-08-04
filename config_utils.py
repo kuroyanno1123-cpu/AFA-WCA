@@ -17,7 +17,7 @@ def make_config(
         run_name, batch_accumulation=1,
         turn_off_norm_weight_decay=False,
         min_str=None, mean_str=None, freq_cut=1, phase_cut=1, granularity=448,
-        use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2,
+        use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2, wca_swap_ll=False,
 ):
     config = ml_collections.ConfigDict()
 
@@ -69,6 +69,7 @@ def make_config(
         config.wca.target = wca_target
         config.wca.level = wca_level
         config.wca.swap_prob = wca_swap_prob
+        config.wca.swap_ll = wca_swap_ll
 
     config.orthogonal_combination = orthogonal_combination
     config.in_mix = in_mix
@@ -288,7 +289,7 @@ class ConfigBuilder:
     def build(
             cls, ds, m, attack, use_prime, use_augmix, use_fourier, use_apr, in_mix, use_jsd,
             use_mix=False, mean_str=None, min_str=None, orth=True, premix='none',
-            use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2,
+            use_wca=False, wca_source='haar', wca_target='db8', wca_level=1, wca_swap_prob=0.2, wca_swap_ll=False,
     ):
         _lookup_ds = ds.upper()
 
@@ -328,6 +329,7 @@ class ConfigBuilder:
         config['wca_target'] = wca_target
         config['wca_level'] = wca_level
         config['wca_swap_prob'] = wca_swap_prob
+        config['wca_swap_ll'] = wca_swap_ll
 
         config['in_mix'] = in_mix
         config['use_jsd'] = use_jsd
